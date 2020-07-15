@@ -1,0 +1,9 @@
+Max step 100
+1000 random steps
+env.seed(2)
+
+# Original
+41.58 seconds
+
+# Voxel
+>60 seconds -> Abort
