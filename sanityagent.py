@@ -244,7 +244,7 @@ class Player():
             loop += 1
             if not loop % 100:
                 print('Eval : {}step passed'.format(loop))
-            a = self.act(o)
+            a = self.act(o, training=False)
             o,r,done,i = env.step(a)
             if i['ate_apple']:
                 score += 1

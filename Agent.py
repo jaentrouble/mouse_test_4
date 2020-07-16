@@ -133,14 +133,15 @@ class Player():
         """
         Preprocess input data
         """
+        processed_obs = {}
         if len(observation['Right'].shape)==\
             len(self.observation_space['Right'].shape):
             for name, obs in observation.items():
-                observation[name] = obs[np.newaxis,:,:,:].astype(np.float32) / 255
+                processed_obs[name] = obs[np.newaxis,:,:,:].astype(np.float32)/255
         else :
             for name, obs in observation.items():
-                observation[name] = obs.astype(np.float32) / 255
-        return observation
+                processed_obs[name] = obs.astype(np.float32)/255
+        return processed_obs
 
     def choose_action(self, q):
         """
@@ -168,7 +169,6 @@ class Player():
         if info['ate_apple']:
             self.score += 1
         self.cumreward += reward
-
         if done:
             tf.summary.scalar('Score', self.score, self.rounds)
             tf.summary.scalar('Reward', self.cumreward, self.rounds)
@@ -188,9 +188,11 @@ class Player():
         else :
             s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
                                                                 hp.Batch_size)
-            target_q = self.t_model(sp_batch, training=False)
-            y = (r_batch, d_batch, a_batch, target_q)
-            self.model.fit(s_batch, y, verbose=False)
+            s_batch = self.pre_processing(s_batch)
+            sp_batch = self.pre_processing(sp_batch)
+            target_q = self.t_model(sp_batch, training=False).numpy()
+            data = (s_batch, r_batch, d_batch, a_batch, target_q)
+            self.model.train_step(data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())
@@ -236,7 +238,7 @@ class Player():
             loop += 1
             if not loop % 100:
                 print('Eval : {}step passed'.format(loop))
-            a = self.act(o)
+            a = self.act(o, training=False)
             o,r,done,i = env.step(a)
             if i['ate_apple']:
                 score += 1
