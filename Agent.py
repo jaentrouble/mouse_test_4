@@ -60,8 +60,7 @@ class Player():
             # Build models
             self.model = keras.Model(inputs=[left_input, right_input],
                                 outputs=outputs)
-            self.model.compile()
-            self.optimizer = keras.optimizers.Adam()
+            self.model.compile(optimizer='Adam')
         else:
             self.model = keras.models.load_model(m_dir)
         self.t_model = keras.models.clone_model(self.model)
@@ -183,7 +182,7 @@ class Player():
 
         trainable_vars = self.model.trainable_variables
         gradients = tape.gradient(loss, trainable_vars)
-        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        self.model.optimizer.apply_gradients(zip(gradients, trainable_vars))
 
 
     def step(self, action, reward, done, info):
