@@ -1,9 +1,9 @@
 import gym
 import gym_mouse
 import time
-import  numpy as np
+import numpy as np
 from Agent import Player
-import .agent_assets.A_hparameters as hp
+import agent_assets.A_hparameters as hp
 from tqdm import trange
 import argparse
 import os
