@@ -3,7 +3,7 @@ import gym_mouse
 import time
 import  numpy as np
 from Agent import Player
-import A_hparameters as hp
+import .agent_assets.A_hparameters as hp
 from tqdm import trange
 import argparse
 import os
@@ -17,9 +17,7 @@ parser.add_argument('--loop', dest='total_loop',default=20)
 parser.add_argument('--curloop', dest='cur_loop',default=0)
 parser.add_argument('--logname', dest='log_name',default=False)
 parser.add_argument('--curround', dest='cur_r',default=0)
-parser.add_argument('-bf', dest='buf_full',action='store_true',default=False)
 parser.add_argument('-lb', dest='load_buffer',action='store_true',default=False)
-parser.add_argument('-bc', dest='buf_count', default=0)
 args = parser.parse_args()
 
 vid_type = 'mp4'
@@ -42,8 +40,7 @@ env = gym.make('mouseCl-v0')
 o = env.reset()
 if args.load :
     player = Player(env.observation_space, env.action_space,
-                args.load, args.log_name, cur_loop*total_steps, cur_r,
-                buf_full, load_buffer, buf_count)
+                args.load, args.log_name, cur_loop*total_steps, cur_r, load_buffer)
 elif args.log_name:
     # If log directory is explicitely selected
     player = Player(env.observation_space, env.action_space, log_name=args.log_name)
@@ -90,10 +87,6 @@ else :
     next_args.append(player.log_name)
     next_args.append('--curround')
     next_args.append(str(player.rounds))
-    if player.buffer_full:
-        next_args.append('-bf')
     next_args.append('-lb')
-    next_args.append('-bc')
-    next_args.append(str(player.buffer_count))
     
     os.execv(sys.executable, next_args)

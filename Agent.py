@@ -2,12 +2,15 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
-import A_hparameters as hp
+import agent_assets.A_hparameters as hp
 from datetime import datetime
 from os import path, makedirs
 import random
 import cv2
 import numpy as np
+from agent_assets.replaybuffer import ReplayBuffer
+from agent_assets.mousemodel import QModel
+import pickle
 
 #leave memory space for opencl
 gpus=tf.config.experimental.list_physical_devices('GPU')
@@ -20,8 +23,7 @@ mixed_precision.set_policy(policy)
 
 class Player():
     def __init__(self, observation_space, action_space, m_dir=None,
-                 log_name=None, start_step=0, start_round=0, buf_full=False,
-                 load_buffer=False, buf_count=0):
+                 log_name=None, start_step=0, start_round=0,load_buffer=False):
         """
         model : The actual training model
         t_model : Fixed target model
@@ -30,10 +32,9 @@ class Player():
         print('Log name : {}'.format(log_name))
         print('Starting from step {}'.format(start_step))
         print('Starting from round {}'.format(start_round))
-        print('Buffer full? {}'.format(buf_full))
         print('Load buffer? {}'.format(load_buffer))
-        print('Current buffer count : {}'.format(buf_count))
         self.action_n = action_space.n
+        self.observation_space = observation_space
         #Inputs
         if m_dir is None :
             left_input = keras.Input(observation_space['Left'].shape,
@@ -52,10 +53,9 @@ class Player():
             concat = layers.Concatenate()([left_encoded,right_encoded])
             outputs = self.brain_layers(concat)
             # Build models
-            self.model = keras.Model(inputs=[left_input, right_input],
-                                    outputs=outputs)
-            self.model.compile(optimizer='Adam', loss='mse', 
-                                metrics=['mse'])
+            self.model = QModel(inputs=[left_input, right_input],
+                                outputs=outputs)
+            self.model.compile(optimizer='Adam', metrics=['mse'])
         else:
             self.model = keras.models.load_model(m_dir)
         self.t_model = keras.models.clone_model(self.model)
@@ -65,18 +65,12 @@ class Player():
         # Buffers
         if load_buffer:
             print('loading buffers...')
-            buffers = np.load(path.join(m_dir,'buffer.npz'))
-            self.right_buffer = buffers['Right']
-            self.left_buffer = buffers['Left']
-            self.target_buffer = buffers['Target']
-            buffers.close()
-            print('loaded')
+            with open(path.join(m_dir,'buffer.bin'),'rb') as f :
+                self.buffer = pickle.load(f)
+            print('loaded : {} filled in buffer'.format(self.buffer.num_in_buffer))
+            print('Current buffer index : {}'.format(self.buffer.next_idx))
         else :
-            self.right_buffer = np.zeros(np.concatenate(([hp.Buffer_size],
-                                observation_space['Right'].shape)))
-            self.left_buffer = np.zeros(np.concatenate(([hp.Buffer_size],
-                                observation_space['Left'].shape)))
-            self.target_buffer = np.zeros((hp.Buffer_size,self.action_n))
+            self.buffer = ReplayBuffer(hp.Buffer_size, self.observation_space)
 
         # File writer for tensorboard
         if log_name is None :
@@ -90,10 +84,8 @@ class Player():
 
         # Scalars
         self.start_training = False
-        self.buffer_full = buf_full
         self.total_steps = start_step
         self.current_steps = 1
-        self.buffer_count = buf_count
         self.score = 0
         self.rounds = start_round
         self.cumreward = 0
@@ -137,15 +129,17 @@ class Player():
             return hp.epsilon-(hp.epsilon-hp.epsilon_min)*\
                 (self.total_steps/hp.epsilon_nstep)
 
-    def pre_processing(self, observation):
+    def pre_processing(self, observation:dict):
         """
         Preprocess input data
         """
-        if len(observation['Right'].shape) < 4:
-            observation['Right'] = observation['Right'][np.newaxis,:,:,:].\
-                                    astype(np.float32) / 255
-            observation['Left'] = observation['Left'][np.newaxis,:,:,:].\
-                                    astype(np.float32) / 255
+        if len(observation['Right'].shape)==\
+            len(self.observation_space['Right'].shape):
+            for name, obs in observation.items():
+                observation[name] = obs[np.newaxis,:,:,:].astype(np.float32) / 255
+        else :
+            for name, obs in observation.items():
+                observation[name] = obs.astype(np.float32) / 255
         return observation
 
     def choose_action(self, q):
@@ -155,25 +149,22 @@ class Player():
         if random.random() < self.epsilon:
             return random.randrange(0, self.action_n)
         else :
-            m = max(q[0])
+            m = np.max(q[0])
             indices = [i for i, x in enumerate(q[0]) if x==m]
             return random.choice(indices)
 
-    def act(self, before_state):
-        before_state = self.pre_processing(before_state)
-        self.right_buffer[self.buffer_count%hp.Buffer_size] = \
-            before_state['Right']
-        self.left_buffer[self.buffer_count%hp.Buffer_size] = \
-            before_state['Left']
-        self.bef_state = before_state
-        self.q = self.model(self.bef_state, training=False).numpy()
-        self.action = self.choose_action(self.q)
-        return self.action
+    def act(self, before_state, training:bool):
+        processed_state = self.pre_processing(before_state)
+        q = self.model(processed_state, training=False).numpy()
+        action = self.choose_action(q)
+        if training :
+            self.buf_idx = self.buffer.store_obs(before_state)
+            tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
+        return action
 
-    def step(self, after_state, reward, done, info):
-        after_state = self.pre_processing(after_state)
+    def step(self, action, reward, done, info):
+        self.buffer.store_effect(self.buf_idx, action, reward, done)
         # Record here, so that it won't record when evaluating
-        tf.summary.scalar('maxQ', tf.math.reduce_max(self.q), self.total_steps)
         if info['ate_apple']:
             self.score += 1
         self.cumreward += reward
@@ -189,44 +180,18 @@ class Player():
             self.cumreward = 0
             self.rounds += 1
 
-            # Q-learning Thing
-            self.q[0, self.action] = reward
-        else:
-            self.q[0, self.action] = reward + hp.Q_discount*np.max(
-                                    self.t_model(after_state, training=False))
-        self.target_buffer[self.buffer_count%hp.Buffer_size] = self.q[0]
-        if not self.start_training :
-            if self.buffer_count > hp.Learn_start or self.buffer_full:
-                self.start_training = True
-            else:
-                self.buffer_count += 1
-                if not self.buffer_count % 100 :
-                    print('filling buffer {0}/{1}'.format(
-                        self.buffer_count, hp.Learn_start))
-        # To check at least once if buffer count is larger than learn start,
-        # DO NOT use else
-        if self.start_training:
-            if not self.buffer_full:
-                batch_indices = random.sample(range(self.buffer_count),
-                                              hp.Batch_size)
-                if self.buffer_count >= hp.Buffer_size-1:
-                    self.buffer_full = True
-            else:
-                batch_indices = random.sample(range(hp.Buffer_size),
-                                              hp.Batch_size)
-            self.buffer_count += 1
-            self.buffer_count = self.buffer_count % hp.Buffer_size
-            batch_right = self.right_buffer[batch_indices]
-            batch_left = self.left_buffer[batch_indices]
-            batch_inputs = {'Right':batch_right,
-                            'Left':batch_left}
-            batch_targets = self.target_buffer[batch_indices]
-            self.model.fit(
-                x=batch_inputs,
-                y=batch_targets,
-                verbose=False,
-                epochs=hp.Train_epoch,
-            )
+        if self.buffer.num_in_buffer < hp.Learn_start :
+            if self.buffer.num_in_buffer % 100 == 0:
+                print('filling buffer {0}/{1}'.format(
+                        self.buffer.num_in_buffer, hp.Learn_start))
+
+        else :
+            s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
+                                                                hp.Batch_size)
+            target_q = self.t_model(sp_batch, training=False)
+            y = (r_batch, d_batch, a_batch, target_q)
+            self.model.fit(s_batch, y, verbose=False)
+
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())
 
@@ -242,12 +207,8 @@ class Player():
             makedirs(self.save_dir)
         self.model_dir = path.join(self.save_dir, str(self.save_count))
         self.model.save(self.model_dir)
-        np.savez(
-            path.join(self.model_dir,'buffer.npz'),
-            Right=self.right_buffer,
-            Left=self.left_buffer,
-            Target=self.target_buffer
-        )
+        with open(path.join(self.model_dir,'buffer.bin'),'wb') as f :
+            pickle.dump(self.buffer, f)
 
         return self.save_count
 
