@@ -63,6 +63,7 @@ class Player():
             self.model.compile(optimizer='Adam')
         else:
             self.model = keras.models.load_model(m_dir)
+            print('model loaded')
         self.t_model = keras.models.clone_model(self.model)
         self.t_model.set_weights(self.model.get_weights())
         self.model.summary()
