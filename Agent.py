@@ -19,12 +19,12 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu,True)
 
 keras.backend.clear_session()
-if len(gpus)>0:
-    policy = mixed_precision.Policy('mixed_float16')
-    print('policy = mixed_float16')
-else : 
-    policy = mixed_precision.Policy('float32')
-mixed_precision.set_policy(policy)
+# if len(gpus)>0:
+#     policy = mixed_precision.Policy('mixed_float16')
+#     print('policy = mixed_float16')
+# else : 
+#     policy = mixed_precision.Policy('float32')
+# mixed_precision.set_policy(policy)
 
 class Player():
     def __init__(self, observation_space, action_space, m_dir=None,
