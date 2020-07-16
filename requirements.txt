@@ -4,3 +4,7 @@ gym
 scikit-image
 opencv-python
 tqdm
+
+# For opencl
+pybind11
+mako

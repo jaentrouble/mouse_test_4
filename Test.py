@@ -25,9 +25,7 @@ total_steps = int(args.total_steps)
 total_loop = int(args.total_loop)
 cur_loop = int(args.cur_loop)
 cur_r = int(args.cur_r)
-buf_full = args.buf_full
 load_buffer = args.load_buffer
-buf_count = int(args.buf_count)
 
 print('starting loop, {} loops left'.format(total_loop))
 if not args.vm :
@@ -49,9 +47,9 @@ else :
 if not args.vm :
     env.render()
 for step in trange(total_steps, ncols=80):
-    action = player.act(o)
+    action = player.act(o, training=True)
     o,r,d,i = env.step(action)
-    player.step(o,r,d,i)
+    player.step(action,r,d,i)
     if d :
         o = env.reset()
     if not args.vm :

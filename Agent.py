@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow import math as tm
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
@@ -18,7 +19,10 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu,True)
 
 keras.backend.clear_session()
-policy = mixed_precision.Policy('mixed_float16')
+if len(gpus)>0:
+    policy = mixed_precision.Policy('mixed_float16')
+else : 
+    policy = mixed_precision.Policy('float32')
 mixed_precision.set_policy(policy)
 
 class Player():
@@ -53,7 +57,7 @@ class Player():
             concat = layers.Concatenate()([left_encoded,right_encoded])
             outputs = self.brain_layers(concat)
             # Build models
-            self.model = QModel(inputs=[left_input, right_input],
+            self.model = keras.Model(inputs=[left_input, right_input],
                                 outputs=outputs)
             self.model.compile(optimizer='Adam', metrics=['mse'])
         else:
@@ -163,6 +167,23 @@ class Player():
             tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
         return action
 
+    @tf.function
+    def train_step(self, o, r, d, a, target_q):
+        q_samp = r + tf.cast(tm.logical_not(d), tf.float32) * \
+                     hp.Q_discount * \
+                     tm.reduce_max(target_q, axis=1)
+        mask = tf.one_hot(a, self.action_n, dtype=tf.float32)
+
+        with tf.GradientTape() as tape:
+            q = self.model(o, training=True)
+            q_sa = tf.math.reduce_sum(q*mask, axis=1)
+            loss = keras.losses.MSE(q_samp, q_sa)
+
+        trainable_vars = self.model.trainable_variables
+        gradients = tape.gradient(loss, trainable_vars)
+        self.model.optimizer.apply_gradients(zip(gradients, trainable_vars))
+
+
     def step(self, action, reward, done, info):
         self.buffer.store_effect(self.buf_idx, action, reward, done)
         # Record here, so that it won't record when evaluating
@@ -192,7 +213,7 @@ class Player():
             sp_batch = self.pre_processing(sp_batch)
             target_q = self.t_model(sp_batch, training=False).numpy()
             data = (s_batch, r_batch, d_batch, a_batch, target_q)
-            self.model.train_step(data)
+            self.train_step(*data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())

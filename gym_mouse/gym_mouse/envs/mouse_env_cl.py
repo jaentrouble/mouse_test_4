@@ -16,7 +16,7 @@ class MouseEnv_cl(gym.Env) :
         self._done = False
         self.viewer = None
         self.engine = None
-        self.max_step = 1000
+        self.max_step = 30
         self.cur_step = 0
         self.image_size = (720,720)
         self.seed()

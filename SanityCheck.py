@@ -2,7 +2,7 @@ from sanity_env import EnvTest
 import gym
 import gym_mouse
 import numpy as np
-from sanityagent import Player
+from Agent import Player
 import agent_assets.A_hparameters as hp
 from tqdm import trange
 import argparse
@@ -43,17 +43,17 @@ for step in trange(10000, ncols=100):
     player.step(action,r,d,i)
     if d :
         o = test_env.reset()
-    if step % 1000 == 0 :
-        print('Evaluating')
-        vo = test_env.reset()
-        rewards = 0
-        for _ in trange(50):
-            vaction = player.act(vo, training=False)
-            print(vaction)
-            vo, vr, vd, vi = test_env.step(vaction)
-            print(vr)
-            rewards += vr
-            if vd :
-                vo = test_env.reset()
-        print(rewards/10)
-        input('continue?')
+    # if step % 1000 == 0 :
+    #     print('Evaluating')
+    #     vo = test_env.reset()
+    #     rewards = 0
+    #     for _ in trange(50):
+    #         vaction = player.act(vo, training=False)
+    #         print(vaction)
+    #         vo, vr, vd, vi = test_env.step(vaction)
+    #         print(vr)
+    #         rewards += vr
+    #         if vd :
+    #             vo = test_env.reset()
+    #     print(rewards/10)
+    #     input('continue?')
