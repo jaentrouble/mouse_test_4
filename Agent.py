@@ -21,6 +21,7 @@ for gpu in gpus:
 keras.backend.clear_session()
 if len(gpus)>0:
     policy = mixed_precision.Policy('mixed_float16')
+    print('policy = mixed_float16')
 else : 
     policy = mixed_precision.Policy('float32')
 mixed_precision.set_policy(policy)
