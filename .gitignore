@@ -2,6 +2,7 @@
 .vscode/
 # Savefiles
 *.npz
+*.bin
 # log files
 log/
 
