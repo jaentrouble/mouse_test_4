@@ -19,11 +19,9 @@ class Apple(Base):
         """
         super().__init__()
         self._shape = shape
-        self._center = np.array(center)
-        self.indices = draw.disk(center, radius, shape=self._shape)
+        self.reset(center, radius)
         self.color = colors.COLOR_APPLE
         self._t_type = tt.Apple
-        self.is_eaten = False
 
     @property
     def pos(self):
@@ -31,12 +29,17 @@ class Apple(Base):
         Center position
         """
         return self._center.copy()
+
+    @pos.setter
+    def pos(self, center):
+        self._center = np.array(center)
     
     def collided(self, t_type):
         if t_type == tt.Mouse:
             self.is_eaten = True
 
     def reset(self, center, radius = ds.Apple_radius):
+        self.pos = center
         self.indices = draw.disk(center, radius, shape=self._shape)
         self.is_eaten = False
 
