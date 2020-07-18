@@ -41,7 +41,7 @@ for step in trange(hp.Learn_start+50, ncols=100):
     if d :
         o = test_env.reset()
 with tf.profiler.experimental.Profile('log/profile'):
-    for step in trange(int(args.step), ncols=100):
+    for step in trange(int(args.step)-250, ncols=100):
         action = player.act(o, training=True)
         o, r, d, i = test_env.step(action)
         player.step(action,r,d,i)
