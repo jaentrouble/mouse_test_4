@@ -177,12 +177,13 @@ class Player():
             return random.choice(indices)
 
     def act(self, before_state, training:bool):
-        processed_state = self.pre_processing(before_state)
-        q = self.model(processed_state, training=False).numpy()
-        action = self.choose_action(q)
-        if training :
-            self.buf_idx = self.buffer.store_obs(before_state)
-            tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
+        with tf.profiler.experimental.Trace('atcing', step_num=self.total_steps, _r=1):
+            processed_state = self.pre_processing(before_state)
+            q = self.model(processed_state, training=False).numpy()
+            action = self.choose_action(q)
+            if training :
+                self.buf_idx = self.buffer.store_obs(before_state)
+                tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
         return action
 
     @tf.function
@@ -227,14 +228,14 @@ class Player():
                         self.buffer.num_in_buffer, hp.Learn_start))
 
         else :
-            s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
-                                                                hp.Batch_size)
-            s_batch = self.pre_processing(s_batch)
-            sp_batch = self.pre_processing(sp_batch)
-            data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
-            with tf.profiler.experimental.Profile('log/profile'):
-                with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
-                    self.train_step_is(*data)
+            with tf.profiler.experimental.Trace('batching', step_num=self.total_steps, _r=1):
+                s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
+                                                                    hp.Batch_size)
+                s_batch = self.pre_processing(s_batch)
+                sp_batch = self.pre_processing(sp_batch)
+                data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
+            with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
+                self.train_step_is(*data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())
