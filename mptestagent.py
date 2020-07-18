@@ -128,7 +128,7 @@ class Player():
     def brain_layers(self, x):
         x = layers.Flatten()(x)
         x = layers.Dense(256, activation='relu')(x)
-        x = layers.Dense(1024, activation='relu')(x)
+        x = layers.Dense(8192, activation='relu')(x)
         x = layers.Dense(1024, activation='relu')(x)
         x = layers.Dense(1024, activation='relu')(x)
         x = layers.Dense(512, activation='relu')(x)
