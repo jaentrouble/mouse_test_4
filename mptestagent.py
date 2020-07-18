@@ -224,13 +224,14 @@ class Player():
                         self.buffer.num_in_buffer, hp.Learn_start))
 
         else :
-            s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
-                                                                hp.Batch_size)
-            s_batch = self.pre_processing(s_batch)
-            sp_batch = self.pre_processing(sp_batch)
-            target_q = self.t_model(sp_batch, training=False).numpy()
-            data = (s_batch, r_batch, d_batch, a_batch, target_q)
-            self.train_step(*data)
+            with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
+                s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
+                                                                    hp.Batch_size)
+                s_batch = self.pre_processing(s_batch)
+                sp_batch = self.pre_processing(sp_batch)
+                target_q = self.t_model(sp_batch, training=False).numpy()
+                data = (s_batch, r_batch, d_batch, a_batch, target_q)
+                self.train_step(*data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())
