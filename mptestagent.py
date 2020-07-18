@@ -114,10 +114,10 @@ class Player():
         inputs = layers.Input(input_shape)
         x = layers.Reshape((inputs.shape[1],
                             inputs.shape[2]*inputs.shape[3]))(inputs)
-        x = layers.Conv1D(512, 7, strides=2, activation='relu')(x)
-        x = layers.Conv1D(512, 7, strides=2, activation='relu')(x)
-        x = layers.Conv1D(512, 7, strides=2, activation='relu')(x)
-        x = layers.Conv1D(512, 7, strides=2, activation='relu')(x)
+        x = layers.Conv1D(512, 7, activation='relu')(x)
+        x = layers.Conv1D(512, 7,activation='relu')(x)
+        x = layers.Conv1D(512, 7,activation='relu')(x)
+        x = layers.Conv1D(512, 7,activation='relu')(x)
         x = layers.Conv1D(512, 7, strides=2, activation='relu')(x)
         x = layers.Conv1D(128, 5, strides=2, activation='relu')(x)
         ## to check kernel dtype
