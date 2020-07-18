@@ -176,10 +176,11 @@ class Player():
             indices = [i for i, x in enumerate(q[0]) if x==m]
             return random.choice(indices)
 
+    @tf.function
     def act(self, before_state, training:bool):
         with tf.profiler.experimental.Trace('atcing', step_num=self.total_steps, _r=1):
             processed_state = self.pre_processing(before_state)
-            q = self.model.predict(processed_state)
+            q = self.model(processed_state, training=False).numpy()
             action = self.choose_action(q)
             if training :
                 self.buf_idx = self.buffer.store_obs(before_state)
