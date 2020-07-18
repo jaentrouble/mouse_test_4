@@ -195,7 +195,7 @@ class Player():
         trainable_vars = self.model.trainable_variables
         scaled_gradients = tape.gradient(scaled_loss, trainable_vars)
         gradients = self.model.optimizer.get_unscaled_gradients(scaled_gradients)
-        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        self.model.optimizer.apply_gradients(zip(gradients, trainable_vars))
 
 
     def step(self, action, reward, done, info):
