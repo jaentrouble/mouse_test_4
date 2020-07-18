@@ -68,6 +68,7 @@ class Player():
             print('model loaded')
         self.t_model = keras.models.clone_model(self.model)
         self.t_model.set_weights(self.model.get_weights())
+        self.t_model.compile()
         self.model.summary()
 
         # Buffers
