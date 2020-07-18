@@ -61,9 +61,10 @@ class Player():
             # Build models
             self.model = keras.Model(inputs=[left_input, right_input],
                                 outputs=outputs)
-            self.optimizer = keras.optimizers.Adam()
-            self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer,
+            optimizer = keras.optimizers.Adam()
+            optimizer = mixed_precision.LossScaleOptimizer(optimizer,
                                                         loss_scale='dynamic')
+            self.model.compile(optimizer=optimizer)
         else:
             self.model = keras.models.load_model(m_dir)
             print('model loaded')
@@ -189,7 +190,7 @@ class Player():
             q = self.model(o, training=True)
             q_sa = tf.math.reduce_sum(q*mask, axis=1)
             loss = keras.losses.MSE(q_samp, q_sa)
-            scaled_loss = self.optimizer.get_scaled_loss(loss)
+            scaled_loss = self.model.optimizer.get_scaled_loss(loss)
 
         trainable_vars = self.model.trainable_variables
         scaled_gradients = tape.gradient(scaled_loss, trainable_vars)
