@@ -176,15 +176,18 @@ class Player():
             indices = [i for i, x in enumerate(q[0]) if x==m]
             return random.choice(indices)
 
-    @tf.function
     def act(self, before_state, training:bool):
-        with tf.profiler.experimental.Trace('atcing', step_num=self.total_steps, _r=1):
+        if training :
+            self.buf_idx = self.buffer.store_obs(before_state)
+        action = self._tf_act(before_state)
+        return action
+    @tf.function
+    def _tf_act(self, before_state):
+        with tf.profiler.experimental.Trace('tf_atcing', step_num=self.total_steps, _r=1):
             processed_state = self.pre_processing(before_state)
             q = self.model(processed_state, training=False)
             action = self.choose_action(q)
-            if training :
-                self.buf_idx = self.buffer.store_obs(before_state)
-                tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
+            tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
         return action
 
     @tf.function
