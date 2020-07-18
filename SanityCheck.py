@@ -8,6 +8,9 @@ from tqdm import trange
 import argparse
 import os
 import sys
+parser = argparse.ArgumentParser()
+parser.add_argument('-pf', dest='profile', action='store_true', default=False)
+args = parser.parse_args()
 
 hp.Buffer_size = 500
 hp.Learn_start = 200
@@ -37,23 +40,39 @@ o = test_env.reset()
 #     player.step(action, r,d,i)
 #     if d :
 #         o = test_env.reset()
-for step in trange(10000, ncols=100):
-    action = player.act(o, training=True)
-    o, r, d, i = test_env.step(action)
-    player.step(action,r,d,i)
-    if d :
-        o = test_env.reset()
-    # if step % 1000 == 0 :
-    #     print('Evaluating')
-    #     vo = test_env.reset()
-    #     rewards = 0
-    #     for _ in trange(50):
-    #         vaction = player.act(vo, training=False)
-    #         print(vaction)
-    #         vo, vr, vd, vi = test_env.step(vaction)
-    #         print(vr)
-    #         rewards += vr
-    #         if vd :
-    #             vo = test_env.reset()
-    #     print(rewards/10)
-    #     input('continue?')
+if args.profile:
+    for step in trange(hp.Learn_start+50, ncols=100):
+        action = player.act(o, training=True)
+        o, r, d, i = test_env.step(action)
+        player.step(action,r,d,i)
+        if d :
+            o = test_env.reset()
+    with tf.profiler.experimental.Profile('log/profile'):
+        for step in trange(5, ncols=100):
+            action = player.act(o, training=True)
+            o, r, d, i = test_env.step(action)
+            player.step(action,r,d,i)
+            if d :
+                o = test_env.reset()
+
+else :
+    for step in trange(10000, ncols=100):
+        action = player.act(o, training=True)
+        o, r, d, i = test_env.step(action)
+        player.step(action,r,d,i)
+        if d :
+            o = test_env.reset()
+        # if step % 1000 == 0 :
+        #     print('Evaluating')
+        #     vo = test_env.reset()
+        #     rewards = 0
+        #     for _ in trange(50):
+        #         vaction = player.act(vo, training=False)
+        #         print(vaction)
+        #         vo, vr, vd, vi = test_env.step(vaction)
+        #         print(vr)
+        #         rewards += vr
+        #         if vd :
+        #             vo = test_env.reset()
+        #     print(rewards/10)
+        #     input('continue?')
