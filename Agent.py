@@ -137,6 +137,7 @@ class Player():
             return hp.epsilon-(hp.epsilon-hp.epsilon_min)*\
                 (self.total_steps/hp.epsilon_nstep)
 
+    @tf.function
     def pre_processing(self, observation:dict):
         """
         Preprocess input data
@@ -145,10 +146,10 @@ class Player():
         if len(observation['Right'].shape)==\
             len(self.observation_space['Right'].shape):
             for name, obs in observation.items():
-                processed_obs[name] = obs[np.newaxis,:,:,:].astype(np.float32)/255
+                processed_obs[name] = tf.cast(obs[np.newaxis,:,:,:],tf.float32)/255
         else :
             for name, obs in observation.items():
-                processed_obs[name] = obs.astype(np.float32)/255
+                processed_obs[name] = tf.cast(obs, tf.float32)/255
         return processed_obs
 
     def choose_action(self, q):
