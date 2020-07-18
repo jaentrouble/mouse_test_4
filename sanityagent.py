@@ -136,6 +136,7 @@ class Player():
             return hp.epsilon-(hp.epsilon-hp.epsilon_min)*\
                 (self.total_steps/hp.epsilon_nstep)
 
+    @tf.function
     def pre_processing(self, observation:dict):
         """
         Preprocess input data
