@@ -18,7 +18,7 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu,True)
 
 keras.backend.clear_session()
-policy = mixed_precision.Policy('float32')
+policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
 
 class Player():
@@ -141,10 +141,10 @@ class Player():
         if len(observation['Right'].shape)==\
             len(self.observation_space['Right'].shape):
             for name, obs in observation.items():
-                processed_obs[name] = obs[np.newaxis,:,:,:].astype(np.float32)/255
+                processed_obs[name] = tf.cast(obs[np.newaxis,:,:,:],tf.float32)/255
         else :
             for name, obs in observation.items():
-                processed_obs[name] = obs.astype(np.float32)/255
+                processed_obs[name] = tf.cast(obs, tf.float32)/255
         return processed_obs
 
     def choose_action(self, q):
@@ -160,13 +160,38 @@ class Player():
             return random.choice(indices)
 
     def act(self, before_state, training:bool):
-        processed_state = self.pre_processing(before_state)
-        q = self.model(processed_state, training=False).numpy()
-        action = self.choose_action(q)
         if training :
             self.buf_idx = self.buffer.store_obs(before_state)
-            tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
+        q = self._tf_q(before_state)
+        action = self.choose_action(q.numpy())
+        tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
         return action
+        
+
+    @tf.function
+    def _tf_q(self, before_state):
+        with tf.profiler.experimental.Trace('tf_atcing', step_num=self.total_steps, _r=1):
+            processed_state = self.pre_processing(before_state)
+            q = self.model(processed_state, training=False)
+        return q
+
+    @tf.function
+    def train_step(self, o, r, d, a, sp_batch):
+        target_q = self.t_model(sp_batch, training=False)
+        q_samp = r + tf.cast(tm.logical_not(d), tf.float32) * \
+                     hp.Q_discount * \
+                     tm.reduce_max(target_q, axis=1)
+        mask = tf.one_hot(a, self.action_n, dtype=tf.float32)
+        with tf.GradientTape() as tape:
+            q = self.model(o, training=True)
+            q_sa = tf.math.reduce_sum(q*mask, axis=1)
+            loss = keras.losses.MSE(q_samp, q_sa)
+            scaled_loss = self.optimizer.get_scaled_loss(loss)
+
+        trainable_vars = self.model.trainable_variables
+        scaled_gradients = tape.gradient(scaled_loss, trainable_vars)
+        gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
 
     def step(self, action, reward, done, info):
         self.buffer.store_effect(self.buf_idx, action, reward, done)
@@ -174,7 +199,6 @@ class Player():
         if info['ate_apple']:
             self.score += 1
         self.cumreward += reward
-        tf.summary.scalar('action', action, self.total_steps)
         if done:
             tf.summary.scalar('Score', self.score, self.rounds)
             tf.summary.scalar('Reward', self.cumreward, self.rounds)
@@ -192,13 +216,14 @@ class Player():
                         self.buffer.num_in_buffer, hp.Learn_start))
 
         else :
-            s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
-                                                                hp.Batch_size)
-            s_batch = self.pre_processing(s_batch)
-            sp_batch = self.pre_processing(sp_batch)
-            target_q = self.t_model(sp_batch, training=False).numpy()
-            data = (s_batch, r_batch, d_batch, a_batch, target_q)
-            self.model.train_step(data)
+            with tf.profiler.experimental.Trace('batching', step_num=self.total_steps, _r=1):
+                s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
+                                                                    hp.Batch_size)
+                s_batch = self.pre_processing(s_batch)
+                sp_batch = self.pre_processing(sp_batch)
+                data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
+            with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
+                self.train_step(*data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())

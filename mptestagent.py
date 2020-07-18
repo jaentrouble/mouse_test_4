@@ -179,19 +179,21 @@ class Player():
     def act(self, before_state, training:bool):
         if training :
             self.buf_idx = self.buffer.store_obs(before_state)
-        action = self._tf_act(before_state)
+        q = self._tf_q(before_state)
+        action = self.choose_action(q.numpy())
+        tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
         return action
+        
+
     @tf.function
-    def _tf_act(self, before_state):
+    def _tf_q(self, before_state):
         with tf.profiler.experimental.Trace('tf_atcing', step_num=self.total_steps, _r=1):
             processed_state = self.pre_processing(before_state)
             q = self.model(processed_state, training=False)
-            action = self.choose_action(q)
-            tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
-        return action
+        return q
 
     @tf.function
-    def train_step_is(self, o, r, d, a, sp_batch):
+    def train_step(self, o, r, d, a, sp_batch):
         target_q = self.t_model(sp_batch, training=False)
         q_samp = r + tf.cast(tm.logical_not(d), tf.float32) * \
                      hp.Q_discount * \
@@ -239,7 +241,7 @@ class Player():
                 sp_batch = self.pre_processing(sp_batch)
                 data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
             with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
-                self.train_step_is(*data)
+                self.train_step(*data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())

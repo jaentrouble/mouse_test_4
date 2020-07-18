@@ -17,3 +17,7 @@ fp32 : 12.1~12.3 (30sec)
 mix : 17.2~18 (24sec)
 
 => Fast with a lot of convolutions (extreme computation)
+
+tf.function also to tf_act
+fp32 : 13 ()
+mix : 31(30sec for 1000)
