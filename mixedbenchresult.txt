@@ -1,0 +1,19 @@
+48~50
+31~33
+
+
+48~50
+31~33
+
+45~47
+29~30
+
+1억~
+15~16
+12~13
+
+Conv extreme
+fp32 : 12.1~12.3 (30sec)
+mix : 17.2~18 (24sec)
+
+=> Fast with a lot of convolutions (extreme computation)
