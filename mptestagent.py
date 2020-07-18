@@ -186,7 +186,7 @@ class Player():
         return action
 
     @tf.function
-    def train_step(self, o, r, d, a, sp_batch):
+    def train_step_is(self, o, r, d, a, sp_batch):
         target_q = self.t_model(sp_batch, training=False)
         q_samp = r + tf.cast(tm.logical_not(d), tf.float32) * \
                      hp.Q_discount * \
@@ -233,7 +233,7 @@ class Player():
             sp_batch = self.pre_processing(sp_batch)
             data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
             with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
-                self.train_step(*data)
+                self.train_step_is(*data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())
