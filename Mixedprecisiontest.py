@@ -42,13 +42,12 @@ if args.profile:
         player.step(action,r,d,i)
         if d :
             o = test_env.reset()
-    with tf.profiler.experimental.Profile('log/profile'):
-        for step in trange(5, ncols=100):
-            action = player.act(o, training=True)
-            o, r, d, i = test_env.step(action)
-            player.step(action,r,d,i)
-            if d :
-                o = test_env.reset()
+    for step in trange(5, ncols=100):
+        action = player.act(o, training=True)
+        o, r, d, i = test_env.step(action)
+        player.step(action,r,d,i)
+        if d :
+            o = test_env.reset()
 else :
     for step in trange(int(args.step), ncols=100):
         action = player.act(o, training=True)

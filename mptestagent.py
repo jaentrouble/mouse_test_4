@@ -232,8 +232,9 @@ class Player():
             s_batch = self.pre_processing(s_batch)
             sp_batch = self.pre_processing(sp_batch)
             data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
-            with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
-                self.train_step_is(*data)
+            with tf.profiler.experimental.Profile('log/profile'):
+                with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
+                    self.train_step_is(*data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())
