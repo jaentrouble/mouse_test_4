@@ -2,7 +2,7 @@ from sanity_env import EnvTest
 import gym
 import gym_mouse
 import numpy as np
-from sanityagent import Player
+from Agent import Player
 import agent_assets.A_hparameters as hp
 from tqdm import trange
 import argparse

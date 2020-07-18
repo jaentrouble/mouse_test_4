@@ -58,7 +58,7 @@ class Player():
             # x = layers.Dense(self.action_n)(x)
             # outputs = layers.Activation('linear',dtype='float32')(x)
             # Build models
-            self.model = QModel(inputs=[left_input, right_input],
+            self.model = keras.Model(inputs=[left_input, right_input],
                                 outputs=outputs)
             self.optimizer = keras.optimizers.Adam()
             self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer,

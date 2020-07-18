@@ -19,12 +19,12 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu,True)
 
 keras.backend.clear_session()
-# if len(gpus)>0:
-#     policy = mixed_precision.Policy('mixed_float16')
-#     print('policy = mixed_float16')
-# else : 
-#     policy = mixed_precision.Policy('float32')
-# mixed_precision.set_policy(policy)
+if len(gpus)>0:
+    policy = mixed_precision.Policy('mixed_float16')
+    print('policy = mixed_float16')
+else : 
+    policy = mixed_precision.Policy('float32')
+mixed_precision.set_policy(policy)
 
 class Player():
     def __init__(self, observation_space, action_space, m_dir=None,
@@ -57,10 +57,13 @@ class Player():
             # Concatenate both eye's inputs
             concat = layers.Concatenate()([left_encoded,right_encoded])
             outputs = self.brain_layers(concat)
+            outputs = layers.Activation('linear',dtype='float32')(outputs)
             # Build models
             self.model = keras.Model(inputs=[left_input, right_input],
                                 outputs=outputs)
-            self.model.compile(optimizer='Adam')
+            self.optimizer = keras.optimizers.Adam()
+            self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer,
+                                                        loss_scale='dynamic')
         else:
             self.model = keras.models.load_model(m_dir)
             print('model loaded')
@@ -123,8 +126,7 @@ class Player():
         x = layers.Dense(256, activation='relu')(x)
         x = layers.Dense(128, activation='relu')(x)
         x = layers.Dense(64, activation='relu')(x)
-        x = layers.Dense(self.action_n)(x)
-        outputs = layers.Activation('linear',dtype='float32')(x)
+        outputs = layers.Dense(self.action_n)(x)
         return outputs
 
     @property
@@ -161,29 +163,37 @@ class Player():
             return random.choice(indices)
 
     def act(self, before_state, training:bool):
-        processed_state = self.pre_processing(before_state)
-        q = self.model(processed_state, training=False).numpy()
-        action = self.choose_action(q)
         if training :
             self.buf_idx = self.buffer.store_obs(before_state)
-            tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
+        q = self._tf_q(before_state)
+        action = self.choose_action(q.numpy())
+        tf.summary.scalar('maxQ', tf.math.reduce_max(q), self.total_steps)
         return action
+        
 
     @tf.function
-    def train_step(self, o, r, d, a, target_q):
+    def _tf_q(self, before_state):
+        processed_state = self.pre_processing(before_state)
+        q = self.model(processed_state, training=False)
+        return q
+
+    @tf.function
+    def train_step(self, o, r, d, a, sp_batch):
+        target_q = self.t_model(sp_batch, training=False)
         q_samp = r + tf.cast(tm.logical_not(d), tf.float32) * \
                      hp.Q_discount * \
                      tm.reduce_max(target_q, axis=1)
         mask = tf.one_hot(a, self.action_n, dtype=tf.float32)
-
         with tf.GradientTape() as tape:
             q = self.model(o, training=True)
             q_sa = tf.math.reduce_sum(q*mask, axis=1)
             loss = keras.losses.MSE(q_samp, q_sa)
+            scaled_loss = self.optimizer.get_scaled_loss(loss)
 
         trainable_vars = self.model.trainable_variables
-        gradients = tape.gradient(loss, trainable_vars)
-        self.model.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        scaled_gradients = tape.gradient(scaled_loss, trainable_vars)
+        gradients = self.optimizer.get_unscaled_gradients(scaled_gradients)
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
 
 
     def step(self, action, reward, done, info):
@@ -213,8 +223,7 @@ class Player():
                                                                 hp.Batch_size)
             s_batch = self.pre_processing(s_batch)
             sp_batch = self.pre_processing(sp_batch)
-            target_q = self.t_model(sp_batch, training=False).numpy()
-            data = (s_batch, r_batch, d_batch, a_batch, target_q)
+            data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
             self.train_step(*data)
 
             if not self.total_steps % hp.Target_update:
