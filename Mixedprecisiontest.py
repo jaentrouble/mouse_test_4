@@ -16,7 +16,7 @@ parser.add_argument('--step', dest='step', default=10000)
 args = parser.parse_args()
 
 if args.mixed_fp:
-    policy = mixed_precision.Policy('mixed_float16', loss_scale=1024)
+    policy = mixed_precision.Policy('mixed_float16')
 else :
     policy = mixed_precision.Policy('float32')
 mixed_precision.set_policy(policy)

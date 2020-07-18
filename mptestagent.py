@@ -62,7 +62,7 @@ class Player():
                                 outputs=outputs)
             self.optimizer = keras.optimizers.Adam()
             self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer,
-                                                        loss_scale='dynamic')
+                                                        loss_scale=1024)
         else:
             self.model = keras.models.load_model(m_dir)
             print('model loaded')
