@@ -186,12 +186,12 @@ class Player():
         return action
 
     @tf.function
-    def train_step(self, o, r, d, a, target_q):
+    def train_step(self, o, r, d, a, sp_batch):
+        target_q = self.t_model(sp_batch, training=False)
         q_samp = r + tf.cast(tm.logical_not(d), tf.float32) * \
                      hp.Q_discount * \
                      tm.reduce_max(target_q, axis=1)
         mask = tf.one_hot(a, self.action_n, dtype=tf.float32)
-
         with tf.GradientTape() as tape:
             q = self.model(o, training=True)
             q_sa = tf.math.reduce_sum(q*mask, axis=1)
@@ -232,8 +232,7 @@ class Player():
                                                                     hp.Batch_size)
                 s_batch = self.pre_processing(s_batch)
                 sp_batch = self.pre_processing(sp_batch)
-                target_q = self.t_model(sp_batch, training=False).numpy()
-                data = (s_batch, r_batch, d_batch, a_batch, target_q)
+                data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
                 self.train_step(*data)
 
             if not self.total_steps % hp.Target_update:
