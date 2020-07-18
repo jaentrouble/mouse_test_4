@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow import keras
+import tensorflow.math as tm
 from tensorflow.keras import layers
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 import agent_assets.A_hparameters as hp
