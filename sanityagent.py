@@ -60,7 +60,9 @@ class Player():
             # Build models
             self.model = QModel(inputs=[left_input, right_input],
                                 outputs=outputs)
-            self.model.compile(optimizer='Adam', metrics=['mse'])
+            self.optimizer = keras.optimizers.Adam()
+            self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer,
+                                                        loss_scale='dynamic')
         else:
             self.model = keras.models.load_model(m_dir)
         self.t_model = keras.models.clone_model(self.model)
