@@ -9,6 +9,7 @@ import argparse
 import os
 import sys
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
+import tensorflow as tf
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-mp', dest='mixed_fp',action='store_true', default=False)
@@ -33,9 +34,16 @@ original_env = gym.make('mouseCl-v0')
 test_env = EnvTest(original_env.observation_space)
 player = Player(original_env.observation_space, test_env.action_space)
 o = test_env.reset()
-for step in trange(int(args.step), ncols=100):
+for step in trange(hp.Learn_start+50, ncols=100):
     action = player.act(o, training=True)
     o, r, d, i = test_env.step(action)
     player.step(action,r,d,i)
     if d :
         o = test_env.reset()
+with tf.profiler.experimental.Profile('log/profile'):
+    for step in trange(int(args.step), ncols=100):
+        action = player.act(o, training=True)
+        o, r, d, i = test_env.step(action)
+        player.step(action,r,d,i)
+        if d :
+            o = test_env.reset()
