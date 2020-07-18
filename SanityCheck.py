@@ -8,6 +8,7 @@ from tqdm import trange
 import argparse
 import os
 import sys
+import tensorflow as tf
 parser = argparse.ArgumentParser()
 parser.add_argument('-pf', dest='profile', action='store_true', default=False)
 args = parser.parse_args()
