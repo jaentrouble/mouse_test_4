@@ -62,7 +62,7 @@ class Player():
                                 outputs=outputs)
             self.optimizer = keras.optimizers.Adam()
             self.optimizer = mixed_precision.LossScaleOptimizer(self.optimizer,
-                                                        loss_scale=1024)
+                                                        loss_scale='dynamic')
         else:
             self.model = keras.models.load_model(m_dir)
             print('model loaded')
@@ -114,10 +114,10 @@ class Player():
         inputs = layers.Input(input_shape)
         x = layers.Reshape((inputs.shape[1],
                             inputs.shape[2]*inputs.shape[3]))(inputs)
-        x = layers.Conv1D(64, 7, strides=2, activation='relu')(x)
-        x = layers.Conv1D(32, 5, strides=2, activation='relu')(x)
+        x = layers.Conv1D(256, 7, strides=2, activation='relu')(x)
+        x = layers.Conv1D(128, 5, strides=2, activation='relu')(x)
         ## to check kernel dtype
-        conv_out = layers.Conv1D(16, 3, strides=2, activation='relu')
+        conv_out = layers.Conv1D(32, 3, strides=2, activation='relu')
         outputs = conv_out(x)
         print('eye output dtype : %s' % outputs.dtype.name)
         print('conv_out kernel dtype : %s' % conv_out.kernel.dtype.name)
@@ -128,11 +128,11 @@ class Player():
     def brain_layers(self, x):
         x = layers.Flatten()(x)
         x = layers.Dense(256, activation='relu')(x)
-        x = layers.Dense(256, activation='relu')(x)
-        x = layers.Dense(256, activation='relu')(x)
-        x = layers.Dense(256, activation='relu')(x)
-        x = layers.Dense(256, activation='relu')(x)
-        x = layers.Dense(128, activation='relu')(x)
+        x = layers.Dense(512, activation='relu')(x)
+        x = layers.Dense(512, activation='relu')(x)
+        x = layers.Dense(512, activation='relu')(x)
+        x = layers.Dense(512, activation='relu')(x)
+        x = layers.Dense(512, activation='relu')(x)
         x = layers.Dense(64, activation='relu')(x)
         x = layers.Dense(self.action_n)(x)
         outputs = layers.Activation('linear',dtype='float32')(x)
