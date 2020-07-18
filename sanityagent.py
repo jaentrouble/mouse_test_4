@@ -173,9 +173,8 @@ class Player():
 
     @tf.function
     def _tf_q(self, before_state):
-        with tf.profiler.experimental.Trace('tf_atcing', step_num=self.total_steps, _r=1):
-            processed_state = self.pre_processing(before_state)
-            q = self.model(processed_state, training=False)
+        processed_state = self.pre_processing(before_state)
+        q = self.model(processed_state, training=False)
         return q
 
     @tf.function
@@ -219,14 +218,12 @@ class Player():
                         self.buffer.num_in_buffer, hp.Learn_start))
 
         else :
-            with tf.profiler.experimental.Trace('batching', step_num=self.total_steps, _r=1):
-                s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
-                                                                    hp.Batch_size)
-                s_batch = self.pre_processing(s_batch)
-                sp_batch = self.pre_processing(sp_batch)
-                data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
-            with tf.profiler.experimental.Trace('train', step_num=self.total_steps, _r=1):
-                self.train_step(*data)
+            s_batch, a_batch, r_batch, d_batch, sp_batch = self.buffer.sample(
+                                                                hp.Batch_size)
+            s_batch = self.pre_processing(s_batch)
+            sp_batch = self.pre_processing(sp_batch)
+            data = (s_batch, r_batch, d_batch, a_batch, sp_batch)
+            self.train_step(*data)
 
             if not self.total_steps % hp.Target_update:
                 self.t_model.set_weights(self.model.get_weights())
