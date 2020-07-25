@@ -6,6 +6,9 @@
 # log files
 log/
 
+# Tensorboard thing
+boardenv/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
